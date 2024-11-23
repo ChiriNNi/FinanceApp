@@ -4,13 +4,12 @@ import DateTimePickerModal from 'react-native-modal-datetime-picker';
 import { Picker } from '@react-native-picker/picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const AddTransactionModal = ({ visible, onClose, updateSummary }) => {
+const AddTransactionModal = ({ visible, onClose, updateSummary, budgetKey }) => {
   const [amount, setAmount] = useState('');
   const [category, setCategory] = useState('');
   const [comment, setComment] = useState('');
   const [date, setDate] = useState(new Date());
   const [showDatePicker, setShowDatePicker] = useState(false);
-  const [transactions, setTransactions] = useState([]);
   const [transactionType, setTransactionType] = useState('expense');
 
   const expenseCategories = ['Аренда', 'Материалы', 'Реклама', 'Транспорт', 'Добавить категорию...'];
@@ -20,17 +19,19 @@ const AddTransactionModal = ({ visible, onClose, updateSummary }) => {
 
   useEffect(() => {
     const fetchTransactions = async () => {
-      try {
-        const storedTransactions = await AsyncStorage.getItem('transactions');
-        if (storedTransactions) {
-          setTransactions(JSON.parse(storedTransactions));
+      if (budgetKey) {
+        try {
+          const storedTransactions = await AsyncStorage.getItem(`${budgetKey}_transactions`);
+          if (storedTransactions) {
+            setTransactions(JSON.parse(storedTransactions));
+          }
+        } catch (error) {
+          console.error('Ошибка при загрузке транзакций:', error);
         }
-      } catch (error) {
-        console.error('Ошибка при загрузке транзакций:', error);
       }
     };
     fetchTransactions();
-  }, []);
+  }, [budgetKey]);
 
   const handleConfirmDate = (selectedDate) => {
     setShowDatePicker(false);
@@ -52,9 +53,9 @@ const AddTransactionModal = ({ visible, onClose, updateSummary }) => {
     };
 
     try {
-      const updatedTransactions = [...transactions, newTransaction];
-      await AsyncStorage.setItem('transactions', JSON.stringify(updatedTransactions));
-      setTransactions(updatedTransactions);
+      const storedTransactions = await AsyncStorage.getItem(`${budgetKey}_transactions`);
+      const updatedTransactions = storedTransactions ? JSON.parse(storedTransactions).concat(newTransaction) : [newTransaction];
+      await AsyncStorage.setItem(`${budgetKey}_transactions`, JSON.stringify(updatedTransactions));
       updateSummary(updatedTransactions);
       alert('Транзакция добавлена успешно');
       onClose();

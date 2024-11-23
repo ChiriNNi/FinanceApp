@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Modal, ScrollView } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Modal, ScrollView, TextInput, Alert } from 'react-native';
 import AddTransactionButton from './AddTransactionButton';
 import Icon from 'react-native-vector-icons/FontAwesome';
 import AddTransactionModal from './AddTransactionModal';
@@ -8,22 +8,45 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 const MainScreen = () => {
   const [budgetModalVisible, setBudgetModalVisible] = useState(false);
   const [transactionModalVisible, setTransactionModalVisible] = useState(false);
+  const [budgets, setBudgets] = useState([]);
+  const [selectedBudget, setSelectedBudget] = useState(null);
   const [incomeTotal, setIncomeTotal] = useState(0);
   const [expenseTotal, setExpenseTotal] = useState(0);
+  const [newBudgetName, setNewBudgetName] = useState('');
 
   useEffect(() => {
-    const fetchSummary = async () => {
+    const fetchBudgets = async () => {
       try {
-        const storedTransactions = await AsyncStorage.getItem('transactions');
-        if (storedTransactions) {
-          updateSummary(JSON.parse(storedTransactions));
+        const storedBudgets = await AsyncStorage.getItem('budgets');
+        if (storedBudgets) {
+          setBudgets(JSON.parse(storedBudgets));
+          setSelectedBudget(JSON.parse(storedBudgets)[0]);
         }
       } catch (error) {
-        console.error('Ошибка при загрузке транзакций:', error);
+        console.error('Ошибка при загрузке бюджетов:', error);
       }
     };
-    fetchSummary();
+    fetchBudgets();
   }, []);
+
+  useEffect(() => {
+    if (selectedBudget) {
+      fetchSummary();
+    }
+  }, [selectedBudget]);
+
+  const fetchSummary = async () => {
+    try {
+      const storedTransactions = await AsyncStorage.getItem(`${selectedBudget}_transactions`);
+      if (storedTransactions) {
+        updateSummary(JSON.parse(storedTransactions));
+      } else {
+        updateSummary([]);
+      }
+    } catch (error) {
+      console.error('Ошибка при загрузке транзакций:', error);
+    }
+  };
 
   const updateSummary = (transactions) => {
     const income = transactions.filter(t => t.type === 'income').reduce((sum, t) => sum + t.amount, 0);
@@ -32,11 +55,41 @@ const MainScreen = () => {
     setExpenseTotal(expense);
   };
 
+  const addNewBudget = async () => {
+    if (!newBudgetName.trim()) {
+      Alert.alert('Ошибка', 'Введите название бюджета');
+      return;
+    }
+    const updatedBudgets = [...budgets, newBudgetName];
+    try {
+      await AsyncStorage.setItem('budgets', JSON.stringify(updatedBudgets));
+      setBudgets(updatedBudgets);
+      setNewBudgetName('');
+      setSelectedBudget(newBudgetName);
+      setBudgetModalVisible(false);
+    } catch (error) {
+      console.error('Ошибка при добавлении нового бюджета:', error);
+    }
+  };
+
+  const clearStorage = async () => {
+    try {
+      await AsyncStorage.clear();
+      setBudgets([]);
+      setSelectedBudget(null);
+      setIncomeTotal(0);
+      setExpenseTotal(0);
+      Alert.alert('Успех', 'Локальное хранилище очищено');
+    } catch (error) {
+      console.error('Ошибка при очистке локального хранилища:', error);
+    }
+  };
+
   return (
     <View style={styles.container}>
       {/* Budget Selector Button */}
       <TouchableOpacity onPress={() => setBudgetModalVisible(true)} style={styles.budgetButton}>
-        <Text style={styles.budgetButtonText}>Моя семья</Text>
+        <Text style={styles.budgetButtonText}>{selectedBudget || 'Выберите бюджет'}</Text>
         <Icon name="caret-down" size={20} color="#ffffff" style={styles.caretIcon} />
       </TouchableOpacity>
 
@@ -57,18 +110,32 @@ const MainScreen = () => {
           <View style={styles.modalContent}>
             <ScrollView>
               <Text style={styles.modalTitle}>Выберите бюджет:</Text>
-              <TouchableOpacity style={styles.budgetOption}>
-                <Text style={styles.budgetOptionText}>Моя семья</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.budgetOption}>
-                <Text style={styles.budgetOptionText}>Проект А</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.budgetOption}>
-                <Text style={styles.budgetOptionText}>Путешествие</Text>
-              </TouchableOpacity>
-              {/* Add more budgets here */}
-              <TouchableOpacity style={styles.createBudgetButton}>
-                <Text style={styles.createBudgetButtonText}>Создать новый бюджет</Text>
+              {budgets.map((budget, index) => (
+                <TouchableOpacity
+                  key={index}
+                  style={styles.budgetOption}
+                  onPress={() => {
+                    setSelectedBudget(budget);
+                    setBudgetModalVisible(false);
+                  }}
+                >
+                  <Text style={styles.budgetOptionText}>{budget}</Text>
+                </TouchableOpacity>
+              ))}
+              <View style={styles.newBudgetContainer}>
+                <TextInput
+                  style={styles.newBudgetInput}
+                  placeholder="Название нового бюджета"
+                  placeholderTextColor="#aaaaaa"
+                  value={newBudgetName}
+                  onChangeText={setNewBudgetName}
+                />
+                <TouchableOpacity style={styles.createBudgetButton} onPress={addNewBudget}>
+                  <Text style={styles.createBudgetButtonText}>Создать новый бюджет</Text>
+                </TouchableOpacity>
+              </View>
+              <TouchableOpacity style={styles.clearButton} onPress={clearStorage}>
+                <Text style={styles.clearButtonText}>Очистить локальное хранилище</Text>
               </TouchableOpacity>
             </ScrollView>
           </View>
@@ -77,12 +144,11 @@ const MainScreen = () => {
 
       <View style={styles.tabsContainer}>
         <TouchableOpacity style={styles.tabButton}><Text style={styles.tabText}>Обзор</Text></TouchableOpacity>
-        <TouchableOpacity style={styles.tabButton}><Text style={styles.tabText}>Расходы</Text></TouchableOpacity>
-        <TouchableOpacity style={styles.tabButton}><Text style={styles.tabText}>Список</Text></TouchableOpacity>
+        <TouchableOpacity style={styles.tabButton}><Text style={styles.tabText}>Финансы</Text></TouchableOpacity>
+        <TouchableOpacity style={styles.tabButton}><Text style={styles.tabText}>Транзакции</Text></TouchableOpacity>
       </View>
       <View style={styles.transactionContainer}>
         <Text style={styles.transactionText}>Октябрь 2024</Text>
-        <Text style={styles.transactionSubText}>Нет транзакций</Text>
       </View>
       <View style={styles.summaryContainer}>
         <View style={styles.summaryBox}><Text style={styles.summaryLabel}>Доходы</Text><Text style={styles.summaryValue}>₸{incomeTotal}</Text></View>
@@ -96,7 +162,8 @@ const MainScreen = () => {
       <AddTransactionModal
         visible={transactionModalVisible}
         onClose={() => setTransactionModalVisible(false)}
-        updateSummary={updateSummary}
+        updateSummary={(transactions) => updateSummary(transactions)}
+        budgetKey={selectedBudget}
       />
     </View>
   );
@@ -152,14 +219,37 @@ const styles = StyleSheet.create({
     fontSize: 18,
     color: '#ffffff',
   },
+  newBudgetContainer: {
+    marginTop: 20,
+  },
+  newBudgetInput: {
+    backgroundColor: '#333',
+    color: '#ffffff',
+    paddingHorizontal: 10,
+    paddingVertical: 10,
+    borderRadius: 10,
+    marginBottom: 10,
+  },
   createBudgetButton: {
     paddingVertical: 15,
-    marginTop: 20,
+    marginTop: 10,
     backgroundColor: '#3D85C6',
     borderRadius: 10,
     alignItems: 'center',
   },
   createBudgetButtonText: {
+    fontSize: 16,
+    color: '#ffffff',
+    fontWeight: 'bold',
+  },
+  clearButton: {
+    paddingVertical: 15,
+    marginTop: 20,
+    backgroundColor: '#ff6666',
+    borderRadius: 10,
+    alignItems: 'center',
+  },
+  clearButtonText: {
     fontSize: 16,
     color: '#ffffff',
     fontWeight: 'bold',
@@ -187,10 +277,6 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: 'bold',
     color: '#ffffff',
-  },
-  transactionSubText: {
-    fontSize: 14,
-    color: '#aaaaaa',
   },
   summaryContainer: {
     flexDirection: 'row',
