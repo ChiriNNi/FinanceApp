@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "159707974787",
+    "project_id": "financeapp-11e8b",
+    "storage_bucket": "financeapp-11e8b.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:159707974787:android:552f8321133a9563badfb6",
+        "android_client_info": {
+          "package_name": "com.twoscore.financeflow"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBYer1rq-fGKf_K2z42cta18ugabWu8OZk"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

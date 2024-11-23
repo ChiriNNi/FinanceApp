@@ -1,12 +1,36 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Modal, ScrollView } from 'react-native';
 import AddTransactionButton from './AddTransactionButton';
 import Icon from 'react-native-vector-icons/FontAwesome';
 import AddTransactionModal from './AddTransactionModal';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const MainScreen = () => {
   const [budgetModalVisible, setBudgetModalVisible] = useState(false);
   const [transactionModalVisible, setTransactionModalVisible] = useState(false);
+  const [incomeTotal, setIncomeTotal] = useState(0);
+  const [expenseTotal, setExpenseTotal] = useState(0);
+
+  useEffect(() => {
+    const fetchSummary = async () => {
+      try {
+        const storedTransactions = await AsyncStorage.getItem('transactions');
+        if (storedTransactions) {
+          updateSummary(JSON.parse(storedTransactions));
+        }
+      } catch (error) {
+        console.error('Ошибка при загрузке транзакций:', error);
+      }
+    };
+    fetchSummary();
+  }, []);
+
+  const updateSummary = (transactions) => {
+    const income = transactions.filter(t => t.type === 'income').reduce((sum, t) => sum + t.amount, 0);
+    const expense = transactions.filter(t => t.type === 'expense').reduce((sum, t) => sum + t.amount, 0);
+    setIncomeTotal(income);
+    setExpenseTotal(expense);
+  };
 
   return (
     <View style={styles.container}>
@@ -61,9 +85,9 @@ const MainScreen = () => {
         <Text style={styles.transactionSubText}>Нет транзакций</Text>
       </View>
       <View style={styles.summaryContainer}>
-        <View style={styles.summaryBox}><Text style={styles.summaryLabel}>Доходы</Text><Text style={styles.summaryValue}>₸0</Text></View>
-        <View style={styles.summaryBox}><Text style={styles.summaryLabel}>Расходы</Text><Text style={styles.summaryValue}>₸0</Text></View>
-        <View style={styles.summaryBox}><Text style={styles.summaryLabel}>Остаток</Text><Text style={styles.summaryValue}>₸0</Text></View>
+        <View style={styles.summaryBox}><Text style={styles.summaryLabel}>Доходы</Text><Text style={styles.summaryValue}>₸{incomeTotal}</Text></View>
+        <View style={styles.summaryBox}><Text style={styles.summaryLabel}>Расходы</Text><Text style={styles.summaryValue}>₸{expenseTotal}</Text></View>
+        <View style={styles.summaryBox}><Text style={styles.summaryLabel}>Остаток</Text><Text style={styles.summaryValue}>₸{incomeTotal - expenseTotal}</Text></View>
       </View>
 
       <AddTransactionButton onPress={() => setTransactionModalVisible(true)} />
@@ -72,6 +96,7 @@ const MainScreen = () => {
       <AddTransactionModal
         visible={transactionModalVisible}
         onClose={() => setTransactionModalVisible(false)}
+        updateSummary={updateSummary}
       />
     </View>
   );

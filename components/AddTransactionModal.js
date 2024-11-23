@@ -1,20 +1,67 @@
-import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Modal } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, Modal, ScrollView } from 'react-native';
 import DateTimePickerModal from 'react-native-modal-datetime-picker';
 import { Picker } from '@react-native-picker/picker';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const AddTransactionModal = ({ visible, onClose }) => {
+const AddTransactionModal = ({ visible, onClose, updateSummary }) => {
   const [amount, setAmount] = useState('');
   const [category, setCategory] = useState('');
   const [comment, setComment] = useState('');
   const [date, setDate] = useState(new Date());
   const [showDatePicker, setShowDatePicker] = useState(false);
+  const [transactions, setTransactions] = useState([]);
+  const [transactionType, setTransactionType] = useState('expense');
 
-  const categories = ['Аренда', 'Материалы', 'Реклама', 'Транспорт', 'Добавить категорию...'];
+  const expenseCategories = ['Аренда', 'Материалы', 'Реклама', 'Транспорт', 'Добавить категорию...'];
+  const incomeCategories = ['Спонсоры', 'Гранты', 'Инвестиции', 'Продажи', 'Платные мероприятия'];
+
+  const categories = transactionType === 'expense' ? expenseCategories : incomeCategories;
+
+  useEffect(() => {
+    const fetchTransactions = async () => {
+      try {
+        const storedTransactions = await AsyncStorage.getItem('transactions');
+        if (storedTransactions) {
+          setTransactions(JSON.parse(storedTransactions));
+        }
+      } catch (error) {
+        console.error('Ошибка при загрузке транзакций:', error);
+      }
+    };
+    fetchTransactions();
+  }, []);
 
   const handleConfirmDate = (selectedDate) => {
     setShowDatePicker(false);
     setDate(selectedDate);
+  };
+
+  const addTransaction = async () => {
+    if (!amount || !category || !comment) {
+      alert('Пожалуйста, заполните все поля');
+      return;
+    }
+
+    const newTransaction = {
+      type: transactionType,
+      amount: parseFloat(amount),
+      category: category,
+      comment: comment,
+      date: date.toISOString(),
+    };
+
+    try {
+      const updatedTransactions = [...transactions, newTransaction];
+      await AsyncStorage.setItem('transactions', JSON.stringify(updatedTransactions));
+      setTransactions(updatedTransactions);
+      updateSummary(updatedTransactions);
+      alert('Транзакция добавлена успешно');
+      onClose();
+    } catch (error) {
+      console.error('Ошибка при добавлении транзакции: ', error);
+      alert(`Ошибка при добавлении транзакции: ${error.message}`);
+    }
   };
 
   return (
@@ -24,9 +71,23 @@ const AddTransactionModal = ({ visible, onClose }) => {
       visible={visible}
       onRequestClose={onClose}
     >
-      <View style={styles.modalContainer}>
+      <ScrollView contentContainerStyle={styles.modalContainer}>
         <View style={styles.modalContent}>
           <Text style={styles.modalTitle}>Добавить транзакцию</Text>
+          <View style={styles.transactionTypeContainer}>
+            <TouchableOpacity
+              style={[styles.transactionTypeButton, transactionType === 'income' && styles.selectedButton]}
+              onPress={() => setTransactionType('income')}
+            >
+              <Text style={styles.transactionTypeText}>Доходы</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.transactionTypeButton, transactionType === 'expense' && styles.selectedButton]}
+              onPress={() => setTransactionType('expense')}
+            >
+              <Text style={styles.transactionTypeText}>Расходы</Text>
+            </TouchableOpacity>
+          </View>
           <TextInput
             style={styles.input}
             placeholder="Сумма:"
@@ -65,22 +126,19 @@ const AddTransactionModal = ({ visible, onClose }) => {
             <TouchableOpacity style={styles.button} onPress={onClose}>
               <Text style={styles.buttonText}>Отмена</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.button} onPress={() => {
-              // Добавить логику добавления транзакции здесь
-              onClose();
-            }}>
+            <TouchableOpacity style={styles.button} onPress={addTransaction}>
               <Text style={styles.buttonText}>Добавить</Text>
             </TouchableOpacity>
           </View>
         </View>
-      </View>
+      </ScrollView>
     </Modal>
   );
 };
 
 const styles = StyleSheet.create({
   modalContainer: {
-    flex: 1,
+    flexGrow: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'center',
     alignItems: 'center',
@@ -96,6 +154,26 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#ffffff',
     marginBottom: 15,
+  },
+  transactionTypeContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 15,
+  },
+  transactionTypeButton: {
+    flex: 1,
+    backgroundColor: '#333',
+    paddingVertical: 10,
+    marginHorizontal: 5,
+    borderRadius: 10,
+    alignItems: 'center',
+  },
+  selectedButton: {
+    backgroundColor: '#3D85C6',
+  },
+  transactionTypeText: {
+    color: '#ffffff',
+    fontWeight: 'bold',
   },
   input: {
     backgroundColor: '#333',
