@@ -13,6 +13,8 @@ const MainScreen = () => {
   const [incomeTotal, setIncomeTotal] = useState(0);
   const [expenseTotal, setExpenseTotal] = useState(0);
   const [newBudgetName, setNewBudgetName] = useState('');
+  const [viewMode, setViewMode] = useState('summary'); // 'summary' or 'transactions'
+  const [transactions, setTransactions] = useState([]);
 
   useEffect(() => {
     const fetchBudgets = async () => {
@@ -39,9 +41,12 @@ const MainScreen = () => {
     try {
       const storedTransactions = await AsyncStorage.getItem(`${selectedBudget}_transactions`);
       if (storedTransactions) {
-        updateSummary(JSON.parse(storedTransactions));
+        const parsedTransactions = JSON.parse(storedTransactions);
+        setTransactions(parsedTransactions);
+        updateSummary(parsedTransactions);
       } else {
         updateSummary([]);
+        setTransactions([]);
       }
     } catch (error) {
       console.error('Ошибка при загрузке транзакций:', error);
@@ -143,18 +148,43 @@ const MainScreen = () => {
       </Modal>
 
       <View style={styles.tabsContainer}>
-        <TouchableOpacity style={styles.tabButton}><Text style={styles.tabText}>Обзор</Text></TouchableOpacity>
-        <TouchableOpacity style={styles.tabButton}><Text style={styles.tabText}>Финансы</Text></TouchableOpacity>
-        <TouchableOpacity style={styles.tabButton}><Text style={styles.tabText}>Транзакции</Text></TouchableOpacity>
+        <TouchableOpacity style={styles.tabButton} onPress={() => setViewMode('summary')}>
+          <Text style={styles.tabText}>Финансы</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.tabButton} onPress={() => setViewMode('transactions')}>
+          <Text style={styles.tabText}>Транзакции</Text>
+        </TouchableOpacity>
       </View>
-      <View style={styles.transactionContainer}>
-        <Text style={styles.transactionText}>Октябрь 2024</Text>
-      </View>
-      <View style={styles.summaryContainer}>
-        <View style={styles.summaryBox}><Text style={styles.summaryLabel}>Доходы</Text><Text style={styles.summaryValue}>₸{incomeTotal}</Text></View>
-        <View style={styles.summaryBox}><Text style={styles.summaryLabel}>Расходы</Text><Text style={styles.summaryValue}>₸{expenseTotal}</Text></View>
-        <View style={styles.summaryBox}><Text style={styles.summaryLabel}>Остаток</Text><Text style={styles.summaryValue}>₸{incomeTotal - expenseTotal}</Text></View>
-      </View>
+
+      {viewMode === 'summary' ? (
+        <View>
+          <View style={styles.transactionContainer}>
+            <Text style={styles.transactionText}>Октябрь 2024</Text>
+          </View>
+          <View style={styles.summaryContainer}>
+            <View style={styles.summaryBox}><Text style={styles.summaryLabel}>Доходы</Text><Text style={styles.summaryValue}>₸{incomeTotal}</Text></View>
+            <View style={styles.summaryBox}><Text style={styles.summaryLabel}>Расходы</Text><Text style={styles.summaryValue}>₸{expenseTotal}</Text></View>
+            <View style={styles.summaryBox}><Text style={styles.summaryLabel}>Остаток</Text><Text style={styles.summaryValue}>₸{incomeTotal - expenseTotal}</Text></View>
+          </View>
+        </View>
+      ) : (
+        <ScrollView style={styles.transactionsList}>
+          {transactions.length > 0 ? (
+            transactions.map((transaction, index) => (
+              <View key={index} style={[
+                styles.transactionItem,
+                transaction.type === 'income' ? styles.incomeItem : styles.expenseItem
+              ]}>
+                <Text style={styles.transactionDate}>{new Date(transaction.date).toLocaleDateString()}</Text>
+                <Text style={styles.transactionAmount}>{transaction.type === 'income' ? `+₸${transaction.amount}` : `-₸${transaction.amount}`}</Text>
+                <Text style={styles.transactionComment}>{transaction.comment}</Text>
+              </View>
+            ))
+          ) : (
+            <Text style={styles.noTransactionsText}>Нет транзакций для отображения</Text>
+          )}
+        </ScrollView>
+      )}
 
       <AddTransactionButton onPress={() => setTransactionModalVisible(true)} />
 
@@ -299,6 +329,43 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: 'bold',
     color: '#ffffff',
+  },
+  transactionsList: {
+    marginTop: 20,
+  },
+  transactionItem: {
+    padding: 15,
+    borderRadius: 10,
+    marginBottom: 10,
+    backgroundColor: '#333333',
+  },
+  incomeItem: {
+    borderLeftWidth: 5,
+    borderLeftColor: '#4CAF50',
+  },
+  expenseItem: {
+    borderLeftWidth: 5,
+    borderLeftColor: '#F44336',
+  },
+  transactionDate: {
+    fontSize: 14,
+    color: '#aaaaaa',
+    marginBottom: 5,
+  },
+  transactionAmount: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#ffffff',
+  },
+  transactionComment: {
+    fontSize: 14,
+    color: '#ffffff',
+  },
+  noTransactionsText: {
+    fontSize: 16,
+    color: '#aaaaaa',
+    textAlign: 'center',
+    marginTop: 20,
   },
 });
 
