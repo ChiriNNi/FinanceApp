@@ -4,16 +4,16 @@ import { createStackNavigator } from '@react-navigation/stack';
 import HomeScreen from './components/HomeScreen';
 import ProfileScreen from './components/ProfileScreen';
 import TabBar from './components/TabBar';
-import firebase from '@react-native-firebase/app';
+import FirstMenu from './components/FirstMenu';
 
 const Stack = createStackNavigator();
 
 const App = () => {
   return (
     <NavigationContainer>
-      <Stack.Navigator initialRouteName="Home">
-        <Stack.Screen name="Home" component={HomeScreen} options={{ headerShown: false }} />
-        <Stack.Screen name="Profile" component={ProfileScreen} options={{ headerShown: false }} />
+      <Stack.Navigator initialRouteName="FirstMenu">
+      <Stack.Screen name="FirstMenu" component={FirstMenu} options={{ headerShown: false }} />
+        <Stack.Screen name="HomeScreen" component={HomeScreen} options={{ headerShown: false }} />
       </Stack.Navigator>
       {/* Custom TabBar Component */}
       <TabBar />
